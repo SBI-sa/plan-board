@@ -16,6 +16,10 @@ One shared board per project where Claude brings you decisions and you settle th
 
 ### As a Claude Code plugin
 
+In the Claude desktop app's **Code** tab: click **+** next to the prompt box, then **Plugins → Add plugin**, and add `SBI-sa/plan-board`.
+
+In Claude Code in a terminal:
+
 ```
 /plugin marketplace add SBI-sa/plan-board
 /plugin install plan-board@plan-board
