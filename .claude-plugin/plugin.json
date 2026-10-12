@@ -1,0 +1,13 @@
+{
+  "name": "plan-board",
+  "version": "1.0.0",
+  "description": "A shared decision board for your project: Claude puts choices on it, you and your team vote, Claude acts on the owner's picks and reports back on each item.",
+  "author": {
+    "name": "SBI",
+    "url": "https://github.com/SBI-sa"
+  },
+  "homepage": "https://github.com/SBI-sa/plan-board",
+  "repository": "https://github.com/SBI-sa/plan-board",
+  "license": "MIT",
+  "keywords": ["decisions", "review", "voting", "artifacts", "team"]
+}

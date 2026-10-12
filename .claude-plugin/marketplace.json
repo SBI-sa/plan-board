@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "plan-board",
+  "description": "plan-board by SBI: decide together with Claude on one board per project.",
+  "owner": {
+    "name": "SBI",
+    "url": "https://github.com/SBI-sa"
+  },
+  "plugins": [
+    {
+      "name": "plan-board",
+      "description": "Claude puts choices on a shared board, you and your team vote, Claude acts on the owner's picks.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
