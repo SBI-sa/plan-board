@@ -48,6 +48,8 @@ Pick/compare items carry `options: [{key, name, desc, image | preview (HTML) | s
 
 **Timeline.** The dashboard and every Board tab show a timeline built from `created`, votes (each entry's `at`, earlier verdicts in `was`, replies at `replyAt`), `status` docs, plan steps' `doneAt` and `stateAt`. Always set `created` to the real time you write the page, so it lands in the right place.
 
+**Library pages (reference, no votes).** Everything for the project lives on its one board, including reference material. A page whose tabs are all `kind: "library"` (and no `items`) shows under **Library** on the dashboard, has no Board tab and never counts as a decision. Tab: `{id, label, kind: "library", heading, intro, src: "/_blob/<id>", count, cats: {key: label}, hideTags: [...], hideLabel}`. Upload the entries as one JSON asset (array of `{id, by, url, cat, tags, text, partial, date}`, plus `orig` and `lang` when `text` is a translation: the page then offers "Show original") and point `src` at it. Viewers search, filter, copy and **Keep** entries; keep marks are private per viewer at `data/users/<id>/<page>__<tab>` = `{keep: [ids]}` (read the owner's own with `ArtifactData` collection `data/users/me`).
+
 ## 3. "check artifact" (also "apply my picks") — read back, act, write back
 
 The page tells people to say **check artifact**; treat "apply my picks" the same.

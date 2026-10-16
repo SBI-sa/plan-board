@@ -673,6 +673,30 @@ a.demo{display:inline-flex;align-items:center;text-decoration:none;justify-self:
 :root[data-skin="soft"] .stamp{border-radius:999px;padding:4.5px 10px}
 
 
+/* ---------- library tab: reference material that lives on the board but is not voted on ---------- */
+.lib{display:grid;gap:14px}
+.lib-bar{display:grid;gap:10px}
+.lib-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lib-q{flex:1 1 240px;min-width:0;min-height:44px;padding:0 12px;font:inherit;color:var(--fg);background:var(--surface);border:var(--bw-ctrl) solid var(--line-2);border-radius:var(--rb)}
+.lib-tg{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:var(--fs-sm);cursor:pointer}
+.lib-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.lib-chips .ml{min-width:72px}
+.lib-chip{min-height:36px;padding:0 11px;border-radius:var(--rp);border:var(--bw) solid var(--line-2);background:var(--surface);color:var(--fg);font:600 var(--fs-sm)/1 var(--sans);cursor:pointer;font-variant-numeric:tabular-nums}
+.lib-chip span{color:var(--muted);margin-inline-start:4px}
+.lib-chip[aria-pressed="true"]{background:var(--sug-bg);border-color:var(--sug);color:var(--sug)}
+.lib-chip[aria-pressed="true"] span{color:inherit}
+.lib-n{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+.lib-it{background:var(--surface);border:var(--bw) solid var(--line);border-radius:var(--r);padding:var(--pad);display:grid;gap:10px;min-width:0;box-shadow:var(--shadow)}
+.lib-it .head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.lib-it .who{font-weight:700}
+.lib-it .q{color:var(--muted);font-size:var(--fs-sm)}
+.lib-it .chip.heavy{background:var(--wait-bg);color:var(--wait)}
+.lib-it pre{margin:0;font:400 .84rem/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:9.6em;overflow:hidden}
+.lib-it.open pre{max-height:none}
+.lib-it .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lib-it .keep[aria-pressed="true"]{border-color:var(--yes);color:var(--yes);background:var(--yes-bg)}
+.lib-it .part{color:var(--wait);font-size:var(--fs-sm);margin:0}
+.lib-more{justify-self:center}
 </style>
 
 <div class="bar">
@@ -748,7 +772,9 @@ const cap = s => s[0].toUpperCase() + s.slice(1);
 function ownerName() { if (amOwner()) return "you"; const o = ownerId(); return (o && P[o] && P[o].name && P[o].name.trim().split(/\s+/)[0]) || "the owner"; }
 
 /* ---------- page shape helpers ---------- */
-function pageTabs(pg) { return (pg.plan ? [PLAN] : []).concat((pg.tabs || []).filter(t => t && t.id), [BOARD]); }
+/* A page whose tabs are all "library" is reference material: no Board tab, listed under Library on the dashboard, never counted as a decision */
+const isLibPage = pg => !!pg && (pg.tabs || []).length > 0 && pg.tabs.every(t => t && t.kind === "library") && !(pg.items || []).length && !pg.plan;
+function pageTabs(pg) { return (pg.plan ? [PLAN] : []).concat((pg.tabs || []).filter(t => t && t.id), isLibPage(pg) ? [] : [BOARD]); }
 const PLAN = {id:"plan", label:"Plan", kind:"plan", heading:"Where this is going", intro:""};
 const WHO = {you:"You", claude:"Claude", composer:"Composer"};
 const STEP = {done:"Done", now:"In progress", next:"Next", later:"Later"};
@@ -976,7 +1002,8 @@ function tile(n, label, hint, main) {
 function buildDash(missing) {
   view = {kind:"dash"}; current = null;
   $("#title").textContent = "plan-board"; $("#back").hidden = true; $("#tabs").hidden = true; $("#progress").textContent = "";
-  const pids = Object.keys(S.pages), st = {};
+  const libs = Object.keys(S.pages).filter(p => isLibPage(S.pages[p]));
+  const pids = Object.keys(S.pages).filter(p => !isLibPage(S.pages[p])), st = {};
   pids.forEach(p => st[p] = stats(p));
   const isDone = p => (S.pages[p].state || "open") === "done";
   const open = pids.filter(p => !isDone(p));
@@ -994,6 +1021,7 @@ function buildDash(missing) {
     <div class="tiles">${tile(canVote() ? waiting().length : "—", "Waiting on you", "Items you haven't voted on or answered", true)}${tile(open.length, "Open", "Decisions still in progress")}${tile(sum("split", open), "Split", "People disagree; the owner decides")}${tile(sum("applied", pids), "Applied", "Claude has done it")}</div>
     <div class="rowh"><h2>Decisions</h2><div class="segf" role="group" aria-label="Show">${["open", "done", "all"].map(f => `<button type="button" class="sf" data-f="${f}" aria-pressed="${S.filter === f}">${f[0].toUpperCase() + f.slice(1)}</button>`).join("")}</div></div>
     ${shown.length ? `<div class="cards">${shown.map(p => cardHtml(p, st[p])).join("")}</div>` : `<p class="empty">Nothing ${S.filter === "done" ? "finished" : "open"} right now.</p>`}
+    ${libs.length ? `<div class="rowh"><h2>Library</h2></div><div class="cards">${libs.map(libCardHtml).join("")}</div>` : ""}
     ${tipsHidden() ? "" : tipsHtml()}
     ${feedBox(feed, 20)}`}
   </section>`;
@@ -1082,6 +1110,14 @@ function cardHtml(p, s) {
     ${s.total || !pg.plan ? `<div class="prog"><span class="pn">${s.decided} of ${s.total} decided</span><div class="track"><div class="fill" style="width:${pct}%"></div></div></div>` : planProg(pg)}
     <div class="chips">${s.due && !done ? `<span class="chip${s.due < today() ? " late" : ""}">Due ${esc(dueLabel(s.due))}</span>` : ""}${s.mine ? `<span class="chip hot">${s.mine} waiting on you</span>` : ""}${s.split ? `<span class="chip">${s.split} split</span>` : ""}${s.needs ? `<span class="chip">${s.needs} needs you</span>` : ""}${s.applied ? `<span class="chip">${s.applied} applied</span>` : ""}</div>
     <div class="foot"><span class="avs">${[...s.voters].map(id => avImg(id)).join("")}</span><span class="t">${s.last ? ago(s.last) : ""}</span></div>
+  </a>`;
+}
+function libCardHtml(p) {
+  const pg = S.pages[p], n = (pg.tabs || []).reduce((a, t) => a + (t.count || 0), 0);
+  return `<a class="card" href="#${esc(p)}" data-state="open">
+    <div class="head"><h3>${esc(pg.title || p)}</h3><span class="cst">Library</span></div>
+    ${pg.sub ? `<p class="desc">${esc(pg.sub)}</p>` : ""}
+    <div class="chips">${n ? `<span class="chip">${n.toLocaleString()} entries</span>` : ""}${(pg.tabs || []).length > 1 ? `<span class="chip">${pg.tabs.length} tabs</span>` : ""}</div>
   </a>`;
 }
 function planNow(pg) { const n = planSteps(pg).find(s => s.s === "now"); return n ? `<p class="cnow">Now: <b>${esc(n.t)}</b></p>` : ""; }
@@ -1180,7 +1216,7 @@ function buildPage(pid) {
   main.append(el("div", {class:"nudgebar", id:"nudge", hidden:""}));
   pageTabs(pg).forEach(t => {
     const b = el("button", {class:"tab", role:"tab", type:"button", id:"tab-" + t.id, "aria-selected":"false", "aria-controls":"panel-" + t.id},
-      esc(t.label || t.id) + (t.kind !== "board" ? ` <span class="n" id="n-${t.id}"></span>` : ""));
+      esc(t.label || t.id) + (t.kind !== "board" && t.kind !== "library" ? ` <span class="n" id="n-${t.id}"></span>` : ""));
     b.addEventListener("click", () => show(t.id));
     tabs.append(b);
     const p = el("section", {class:"panel", role:"tabpanel", id:"panel-" + t.id, "aria-labelledby":"tab-" + t.id, hidden:""});
@@ -1204,6 +1240,7 @@ function buildPage(pid) {
     else if (t.kind === "compare") { const w = el("div", {class:"list"}); its.forEach(i => w.append(compare(pg, i))); p.append(w); }
     else if (t.kind === "board") p.append(el("div", {class:"boardwrap", id:"board"}));
     else if (t.kind === "plan") p.append(el("div", {class:"planwrap", id:"plan"}));
+    else if (t.kind === "library") p.append(libraryOf(pid, t));
     main.append(p);
   });
   tabs.onkeydown = e => {
@@ -1259,6 +1296,133 @@ function itemExtras(it) {
 const extras = `<div class="cs" data-claude></div><div class="fup" hidden><div data-thread></div><div class="row"><textarea class="fupin" rows="1" placeholder="Reply to Claude" aria-label="Reply to Claude"></textarea><button type="button" class="btn fupgo">Send</button></div></div><div class="hist" data-hist></div>`;
 const reviewsBox = `<span class="rnd" data-round></span><ul class="reviews" data-people></ul>`;
 const NEEDS_WHY = ["change", "flag"];
+
+/* ---------- library tab ----------
+   Tab: {id, label, kind:"library", heading, intro, src:"/_blob/<id>" (JSON array), count, cats:{key:label}, hideTags:[...], hideLabel}
+   Entry: {id, by, url, cat, tags:[...], text, partial, date, orig?, lang?}. `orig` is the original-language text when `text` is a translation.
+   Text is third-party: always rendered as text, never HTML.
+   "Keep" marks are private per viewer: data/users/<me>/<page>__<tab> = {keep:[ids]}; the owner's Claude reads its own with ArtifactData (data/users/me). */
+const LIB = {};
+const LIB_PAGE = 40;
+function libKeepDoc(pid, t) { return S.db && S.me && S.me.id ? S.db.collection("data/users/" + S.me.id).doc(pid + "__" + t.id) : null; }
+function libState(pid, t) {
+  const k = pid + "." + t.id;
+  if (!LIB[k]) {
+    LIB[k] = {rows:null, err:"", q:"", cats:new Set(), tags:new Set(), hide:(t.hideTags || []).length > 0, kept:false, shown:LIB_PAGE, keep:new Set(), keepLoaded:false};
+    const L = LIB[k];
+    if (t.src) fetch(t.src).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(rows => { L.rows = Array.isArray(rows) ? rows : []; libPaint(pid, t); })
+      .catch(() => { L.err = "Couldn't load this library. Reload the page."; libPaint(pid, t); });
+    else L.err = "This library has no data file yet.";
+    const d = libKeepDoc(pid, t);
+    if (d) d.get().then(s => { const v = s && (typeof s.data === "function" ? s.data() : s); if (v && Array.isArray(v.keep)) L.keep = new Set(v.keep); L.keepLoaded = true; libPaint(pid, t); }).catch(() => { L.keepLoaded = true; });
+  }
+  return LIB[k];
+}
+function libSaveKeep(pid, t, L) {
+  const d = libKeepDoc(pid, t); if (!d) { setSave("Sign in to keep entries"); return; }
+  setSave("Saving…");
+  d.set({page:pid, tab:t.id, keep:[...L.keep], at:new Date().toISOString()}).then(() => setSave("Saved " + clock())).catch(() => setSave("Couldn't save that keep mark.", true));
+}
+function libraryOf(pid, t) {
+  const L = libState(pid, t), heavy = new Set(t.hideTags || []);
+  const wrap = el("div", {class:"lib", id:"lib-" + t.id});
+  const bar = el("div", {class:"lib-bar"});
+  bar.innerHTML = `<div class="lib-row"><input class="lib-q" id="libq-${esc(t.id)}" type="search" placeholder="Search text, authors, tags" aria-label="Search ${esc(t.label || "library")}">
+    ${heavy.size ? `<label class="lib-tg"><input type="checkbox" class="lib-hide"${L.hide ? " checked" : ""}> ${esc(t.hideLabel || "Hide " + [...heavy].join(", "))}</label>` : ""}
+    <label class="lib-tg"><input type="checkbox" class="lib-kept"${L.kept ? " checked" : ""}> Kept only</label></div>
+    <div class="lib-chips" data-g="cats"></div><div class="lib-chips" data-g="tags"></div><p class="lib-n" aria-live="polite"></p>`;
+  const q = bar.querySelector(".lib-q"); q.value = L.q;
+  let tm; q.addEventListener("input", () => { clearTimeout(tm); tm = setTimeout(() => { L.q = q.value.trim().toLowerCase(); L.shown = LIB_PAGE; libPaint(pid, t); }, 120); });
+  const hb = bar.querySelector(".lib-hide"); if (hb) hb.addEventListener("change", () => { L.hide = hb.checked; L.shown = LIB_PAGE; libPaint(pid, t); });
+  bar.querySelector(".lib-kept").addEventListener("change", e => { L.kept = e.target.checked; L.shown = LIB_PAGE; libPaint(pid, t); });
+  wrap.append(bar, el("div", {class:"lib-list"}));
+  setTimeout(() => libPaint(pid, t), 0);
+  return wrap;
+}
+function libChips(box, label, counts, names, set, onChange) {
+  if (box.dataset.done) return;
+  box.dataset.done = "1";
+  box.append(el("span", {class:"ml"}, esc(label)));
+  Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([k, n]) => {
+    const b = el("button", {type:"button", class:"lib-chip", "aria-pressed":String(set.has(k))}, `${esc(names[k] || k)}<span>${n}</span>`);
+    b.addEventListener("click", () => { set.has(k) ? set.delete(k) : set.add(k); b.setAttribute("aria-pressed", String(set.has(k))); onChange(); });
+    box.append(b);
+  });
+}
+function libPaint(pid, t) {
+  const L = LIB[pid + "." + t.id], root = document.getElementById("lib-" + t.id); if (!L || !root) return;
+  const list = root.querySelector(".lib-list"), n = root.querySelector(".lib-n");
+  if (L.err) { list.innerHTML = `<p class="empty">${esc(L.err)}</p>`; n.textContent = ""; return; }
+  if (!L.rows) { list.innerHTML = `<p class="empty">Loading ${esc((t.count || "").toLocaleString())} entries…</p>`; return; }
+  const heavy = new Set(t.hideTags || []), names = t.cats || {};
+  const isHeavy = r => (r.tags || []).some(x => heavy.has(x)) || heavy.has(r.cat);
+  const cc = {}, tc = {};
+  L.rows.forEach(r => { if (r.cat) cc[r.cat] = (cc[r.cat] || 0) + 1; (r.tags || []).forEach(x => tc[x] = (tc[x] || 0) + 1); });
+  const re = () => { L.shown = LIB_PAGE; libPaint(pid, t); };
+  libChips(root.querySelector('[data-g="cats"]'), "Kind", cc, names, L.cats, re);
+  libChips(root.querySelector('[data-g="tags"]'), "Built with", tc, {}, L.tags, re);
+  const hits = L.rows.filter(r => {
+    if (L.hide && isHeavy(r)) return false;
+    if (L.kept && !L.keep.has(r.id)) return false;
+    if (L.cats.size && !L.cats.has(r.cat)) return false;
+    if (L.tags.size && ![...L.tags].every(x => (r.tags || []).includes(x))) return false;
+    if (L.q) { const h = ((r.text || "") + " " + (r.orig || "") + " " + (r.by || "") + " " + (r.tags || []).join(" ")).toLowerCase(); if (!L.q.split(/\s+/).every(w => h.includes(w))) return false; }
+    return true;
+  });
+  n.textContent = `${hits.length.toLocaleString()} of ${L.rows.length.toLocaleString()} · ${L.keep.size} kept`;
+  list.replaceChildren();
+  if (!hits.length) { list.append(el("p", {class:"empty"}, L.kept ? "Nothing kept matches. Tap Keep on an entry to save it here." : "Nothing matches. Clear a filter or the search.")); return; }
+  hits.slice(0, L.shown).forEach(r => {
+    const a = el("article", {class:"lib-it"});
+    const head = el("div", {class:"head"});
+    head.append(el("span", {class:"who"}, esc(r.by ? "@" + r.by : "")));
+    if (r.cat) head.append(el("span", {class:"chip"}, esc(names[r.cat] || r.cat)));
+    (r.tags || []).forEach(x => head.append(el("span", {class:"chip" + (heavy.has(x) ? " heavy" : "")}, esc(x))));
+    head.append(el("span", {class:"q"}, esc((r.date ? r.date + " · " : "") + (r.text || "").length.toLocaleString() + " chars")));
+    if (r.orig) head.append(el("span", {class:"chip"}, esc("Translated" + (r.lang ? " from " + r.lang : ""))));
+    const pre = el("pre"); pre.textContent = r.text || "";
+    a.append(head, pre);
+    if (r.partial) a.append(el("p", {class:"part"}, "Only part of this prompt was posted publicly."));
+    const row = el("div", {class:"row"});
+    if (r.orig) {
+      const tg = el("button", {type:"button", class:"btn", "aria-pressed":"false"}, "Show original");
+      tg.addEventListener("click", () => {
+        const o = tg.getAttribute("aria-pressed") !== "true";
+        tg.setAttribute("aria-pressed", String(o)); tg.textContent = o ? "Show English" : "Show original";
+        pre.textContent = o ? r.orig : (r.text || "");
+      });
+      row.append(tg);
+    }
+    if ((r.text || "").length > 420) {
+      const m = el("button", {type:"button", class:"btn"}, "Show all");
+      m.addEventListener("click", () => { a.classList.toggle("open"); m.textContent = a.classList.contains("open") ? "Collapse" : "Show all"; });
+      row.append(m);
+    }
+    const cp = el("button", {type:"button", class:"btn"}, "Copy");
+    cp.addEventListener("click", () => {
+      const ok = () => { cp.textContent = "Copied ✓"; setTimeout(() => cp.textContent = "Copy", 1600); };
+      try { navigator.clipboard.writeText(pre.textContent).then(ok, () => getSelection().selectAllChildren(pre)); } catch (e) { getSelection().selectAllChildren(pre); }
+    });
+    const kp = el("button", {type:"button", class:"btn keep", "aria-pressed":String(L.keep.has(r.id))}, L.keep.has(r.id) ? "Kept" : "Keep");
+    kp.addEventListener("click", () => {
+      L.keep.has(r.id) ? L.keep.delete(r.id) : L.keep.add(r.id);
+      kp.setAttribute("aria-pressed", String(L.keep.has(r.id))); kp.textContent = L.keep.has(r.id) ? "Kept" : "Keep";
+      n.textContent = `${hits.length.toLocaleString()} of ${L.rows.length.toLocaleString()} · ${L.keep.size} kept`;
+      libSaveKeep(pid, t, L);
+    });
+    row.append(cp, kp);
+    if (/^https:\/\//.test(r.url || "")) { const s = el("a", {class:"btn", href:r.url, target:"_blank", rel:"noopener"}, "Source ↗"); row.append(s); }
+    a.append(row);
+    list.append(a);
+  });
+  if (hits.length > L.shown) {
+    const b = el("button", {type:"button", class:"btn lib-more"}, `Show ${Math.min(LIB_PAGE, hits.length - L.shown)} more`);
+    b.addEventListener("click", () => { L.shown += LIB_PAGE; libPaint(pid, t); });
+    list.append(b);
+  }
+}
+
 function listOf(pg, t, mode) {
   const wrap = el("div", {class:mode});
   const vs = VERD[t.verdicts] || VERD.review;
@@ -1487,7 +1651,7 @@ function paintCounts() {
   const pg = S.pages[view.id]; if (!pg) return;
   let d = 0, t = 0;
   pageTabs(pg).forEach(tb => {
-    if (tb.kind === "board") return;
+    if (tb.kind === "board" || tb.kind === "library") return;
     if (tb.kind === "plan") {
       const all = planSteps(pg), dn = all.filter(s => s.s === "done").length, n = $("#n-plan");
       if (n) { n.textContent = dn + "/" + all.length; n.classList.toggle("done", all.length > 0 && dn === all.length); }
@@ -1547,7 +1711,7 @@ function summaryText(pid) {
   const pg = S.pages[pid], items = pg.items || [];
   const lines = [`${pg.title || pid} — ${items.filter(i => isDecided(pid, i)).length} of ${items.length} decided`, ""];
   pageTabs(pg).forEach(t => {
-    if (t.kind === "board" || t.kind === "plan") return;
+    if (t.kind === "board" || t.kind === "plan" || t.kind === "library") return;
     lines.push("## " + (t.label || t.id));
     byTab(pg, t.id).forEach(i => {
       const dec = decide(pid, i), st = statusOf(pid, i, dec), es = entriesFor(pid, i.id);
