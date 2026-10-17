@@ -1299,7 +1299,7 @@ const NEEDS_WHY = ["change", "flag"];
 
 /* ---------- library tab ----------
    Tab: {id, label, kind:"library", heading, intro, src:"/_blob/<id>" (JSON array), count, cats:{key:label}, hideTags:[...], hideLabel}
-   Entry: {id, by, url, cat, tags:[...], text, partial, date, orig?, lang?}. `orig` is the original-language text when `text` is a translation.
+   Entry: {id, title?, by, url, cat, tags:[...], text, partial, date, orig?, lang?}. `title` replaces the @author line when set. `orig` is the original-language text when `text` is a translation.
    Text is third-party: always rendered as text, never HTML.
    "Keep" marks are private per viewer: data/users/<me>/<page>__<tab> = {keep:[ids]}; the owner's Claude reads its own with ArtifactData (data/users/me). */
 const LIB = {};
@@ -1376,7 +1376,7 @@ function libPaint(pid, t) {
   hits.slice(0, L.shown).forEach(r => {
     const a = el("article", {class:"lib-it"});
     const head = el("div", {class:"head"});
-    head.append(el("span", {class:"who"}, esc(r.by ? "@" + r.by : "")));
+    head.append(el("span", {class:"who"}, esc(r.title || (r.by ? "@" + r.by : ""))));
     if (r.cat) head.append(el("span", {class:"chip"}, esc(names[r.cat] || r.cat)));
     (r.tags || []).forEach(x => head.append(el("span", {class:"chip" + (heavy.has(x) ? " heavy" : "")}, esc(x))));
     head.append(el("span", {class:"q"}, esc((r.date ? r.date + " · " : "") + (r.text || "").length.toLocaleString() + " chars")));
